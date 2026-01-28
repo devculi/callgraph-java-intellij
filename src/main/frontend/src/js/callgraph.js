@@ -24,17 +24,55 @@ let selectedNodeId = null;
 let isGraphFitted = false;
 let isGraphGenerated = false;
 
+// Enhanced interaction with liquid glass effects
 network.on("click", function (params) {
+    // Add ripple effect on click
+    createRippleEffect(params.pointer.DOM.x, params.pointer.DOM.y);
+    
     if (params.nodes.length === 1) {
         selectedNodeId = params.nodes[0];
         JavaBridge.goToSource(params.nodes[0]);
+        // Pulse the selected node
+        pulseNode(params.nodes[0]);
     } else {
         selectedNodeId = null;
     }
     if (params.edges.length === 1) {
         JavaBridge.goToSource(params.edges[0]);
+        // Illuminate the selected edge
+        illuminateEdge(params.edges[0]);
     }
     updateButtonVisibility();
+});
+
+network.on("hoverNode", function(params) {
+    // Add glow effect to hovered node
+    const nodeId = params.node;
+    network.body.data.nodes.update({
+        id: nodeId,
+        shadow: {
+            enabled: true,
+            color: "rgba(0, 255, 255, 0.6)",
+            size: 25,
+            x: 0,
+            y: 0
+        }
+    });
+});
+
+network.on("blurNode", function(params) {
+    // Remove enhanced glow when not hovering
+    const nodeId = params.node;
+    network.body.data.nodes.update({
+        id: nodeId,
+        shadow: {
+            enabled: true,
+            color: "rgba(0, 255, 255, 0.3)",
+            size: 15,
+            x: 0,
+            y: 0
+        }
+    });
 });
 
 network.on("stabilizationProgress", function (params) {
@@ -63,6 +101,115 @@ network.on("zoom", () => {
     isGraphFitted = false;
     updateButtonVisibility();
 });
+
+// Liquid glass animation functions
+function createRippleEffect(x, y) {
+    const ripple = document.createElement('div');
+    ripple.style.position = 'absolute';
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+    ripple.style.width = '20px';
+    ripple.style.height = '20px';
+    ripple.style.borderRadius = '50%';
+    ripple.style.border = '2px solid rgba(0, 255, 255, 0.6)';
+    ripple.style.pointerEvents = 'none';
+    ripple.style.transform = 'translate(-50%, -50%)';
+    ripple.style.animation = 'ripple-expand 0.6s ease-out';
+    
+    const style = document.createElement('style');
+    if (!document.getElementById('ripple-animation')) {
+        style.id = 'ripple-animation';
+        style.textContent = `
+            @keyframes ripple-expand {
+                0% {
+                    width: 20px;
+                    height: 20px;
+                    opacity: 1;
+                }
+                100% {
+                    width: 100px;
+                    height: 100px;
+                    opacity: 0;
+                    border-width: 1px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+}
+
+function pulseNode(nodeId) {
+    // Create a pulsing animation for selected node
+    const originalShadow = {
+        enabled: true,
+        color: "rgba(0, 255, 255, 0.3)",
+        size: 15,
+        x: 0,
+        y: 0
+    };
+    
+    // Pulse effect
+    network.body.data.nodes.update({
+        id: nodeId,
+        shadow: {
+            enabled: true,
+            color: "rgba(0, 255, 255, 0.9)",
+            size: 30,
+            x: 0,
+            y: 0
+        }
+    });
+    
+    setTimeout(() => {
+        network.body.data.nodes.update({
+            id: nodeId,
+            shadow: originalShadow
+        });
+    }, 300);
+}
+
+function illuminateEdge(edgeId) {
+    // Create an illumination effect for selected edge
+    const edge = network.body.data.edges.get(edgeId);
+    if (edge) {
+        network.body.data.edges.update({
+            id: edgeId,
+            color: {
+                color: "rgba(200, 100, 255, 0.9)",
+                highlight: "rgba(200, 100, 255, 0.9)"
+            },
+            width: 4,
+            shadow: {
+                enabled: true,
+                color: "rgba(200, 100, 255, 0.6)",
+                size: 15,
+                x: 0,
+                y: 0
+            }
+        });
+        
+        setTimeout(() => {
+            network.body.data.edges.update({
+                id: edgeId,
+                color: {
+                    color: "rgba(138, 100, 226, 0.4)",
+                    highlight: "rgba(200, 100, 255, 0.8)"
+                },
+                width: 2,
+                shadow: {
+                    enabled: true,
+                    color: "rgba(138, 100, 226, 0.3)",
+                    size: 8,
+                    x: 0,
+                    y: 0
+                }
+            });
+        }, 500);
+    }
+}
 
 function hideSelectedNode() {
     if (selectedNodeId !== null) {
@@ -161,7 +308,12 @@ function updateNetwork(data) {
 }
 
 function fit() {
-    network.fit();
+    network.fit({
+        animation: {
+            duration: 800,
+            easingFunction: "easeInOutQuad"
+        }
+    });
     isGraphFitted = true;
     updateButtonVisibility();
 }
