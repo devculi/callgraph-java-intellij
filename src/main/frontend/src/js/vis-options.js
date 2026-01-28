@@ -89,12 +89,12 @@ const options = {
         hover: true,
         hoverConnectedEdges: true,
         selectConnectedEdges: true,
-        tooltipDelay: 200,
+        tooltipDelay: 400,
         navigationButtons: false,
         keyboard: {
             enabled: true,
             speed: {x: 10, y: 10, zoom: 0.02},
-            bindToWindow: false
+            bindToWindow: true
         }
     },
     physics: {

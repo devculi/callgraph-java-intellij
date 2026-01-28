@@ -23,6 +23,28 @@ let hiddenNodes = new Set();
 let selectedNodeId = null;
 let isGraphFitted = false;
 let isGraphGenerated = false;
+let pulseTimeoutId = null;
+let illuminateTimeoutId = null;
+
+// Create ripple animation style once
+const rippleStyle = document.createElement('style');
+rippleStyle.id = 'ripple-animation';
+rippleStyle.textContent = `
+    @keyframes ripple-expand {
+        0% {
+            width: 20px;
+            height: 20px;
+            opacity: 1;
+        }
+        100% {
+            width: 100px;
+            height: 100px;
+            opacity: 0;
+            border-width: 1px;
+        }
+    }
+`;
+document.head.appendChild(rippleStyle);
 
 // Enhanced interaction with liquid glass effects
 network.on("click", function (params) {
@@ -48,31 +70,37 @@ network.on("click", function (params) {
 network.on("hoverNode", function(params) {
     // Add glow effect to hovered node
     const nodeId = params.node;
-    network.body.data.nodes.update({
-        id: nodeId,
-        shadow: {
-            enabled: true,
-            color: "rgba(0, 255, 255, 0.6)",
-            size: 25,
-            x: 0,
-            y: 0
-        }
-    });
+    const node = network.body.data.nodes.get(nodeId);
+    if (node) {
+        network.body.data.nodes.update({
+            id: nodeId,
+            shadow: {
+                enabled: true,
+                color: "rgba(0, 255, 255, 0.6)",
+                size: 25,
+                x: 0,
+                y: 0
+            }
+        });
+    }
 });
 
 network.on("blurNode", function(params) {
     // Remove enhanced glow when not hovering
     const nodeId = params.node;
-    network.body.data.nodes.update({
-        id: nodeId,
-        shadow: {
-            enabled: true,
-            color: "rgba(0, 255, 255, 0.3)",
-            size: 15,
-            x: 0,
-            y: 0
-        }
-    });
+    const node = network.body.data.nodes.get(nodeId);
+    if (node) {
+        network.body.data.nodes.update({
+            id: nodeId,
+            shadow: {
+                enabled: true,
+                color: "rgba(0, 255, 255, 0.3)",
+                size: 15,
+                x: 0,
+                y: 0
+            }
+        });
+    }
 });
 
 network.on("stabilizationProgress", function (params) {
@@ -115,35 +143,24 @@ function createRippleEffect(x, y) {
     ripple.style.pointerEvents = 'none';
     ripple.style.transform = 'translate(-50%, -50%)';
     ripple.style.animation = 'ripple-expand 0.6s ease-out';
+    ripple.style.zIndex = '999';
     
-    const style = document.createElement('style');
-    if (!document.getElementById('ripple-animation')) {
-        style.id = 'ripple-animation';
-        style.textContent = `
-            @keyframes ripple-expand {
-                0% {
-                    width: 20px;
-                    height: 20px;
-                    opacity: 1;
-                }
-                100% {
-                    width: 100px;
-                    height: 100px;
-                    opacity: 0;
-                    border-width: 1px;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    document.body.appendChild(ripple);
+    networkElement.appendChild(ripple);
     setTimeout(() => ripple.remove(), 600);
 }
 
 function pulseNode(nodeId) {
     // Create a pulsing animation for selected node
-    const originalShadow = {
+    const node = network.body.data.nodes.get(nodeId);
+    if (!node) return;
+    
+    // Cancel previous timeout if exists
+    if (pulseTimeoutId) {
+        clearTimeout(pulseTimeoutId);
+    }
+    
+    // Store original shadow or use default
+    const originalShadow = node.shadow || {
         enabled: true,
         color: "rgba(0, 255, 255, 0.3)",
         size: 15,
@@ -163,52 +180,67 @@ function pulseNode(nodeId) {
         }
     });
     
-    setTimeout(() => {
-        network.body.data.nodes.update({
-            id: nodeId,
-            shadow: originalShadow
-        });
+    pulseTimeoutId = setTimeout(() => {
+        const currentNode = network.body.data.nodes.get(nodeId);
+        if (currentNode) {
+            network.body.data.nodes.update({
+                id: nodeId,
+                shadow: originalShadow
+            });
+        }
     }, 300);
 }
 
 function illuminateEdge(edgeId) {
     // Create an illumination effect for selected edge
     const edge = network.body.data.edges.get(edgeId);
-    if (edge) {
-        network.body.data.edges.update({
-            id: edgeId,
-            color: {
-                color: "rgba(200, 100, 255, 0.9)",
-                highlight: "rgba(200, 100, 255, 0.9)"
-            },
-            width: 4,
-            shadow: {
-                enabled: true,
-                color: "rgba(200, 100, 255, 0.6)",
-                size: 15,
-                x: 0,
-                y: 0
-            }
-        });
-        
-        setTimeout(() => {
+    if (!edge) return;
+    
+    // Cancel previous timeout if exists
+    if (illuminateTimeoutId) {
+        clearTimeout(illuminateTimeoutId);
+    }
+    
+    // Store original colors or use defaults
+    const originalColor = edge.color || {
+        color: "rgba(138, 100, 226, 0.4)",
+        highlight: "rgba(200, 100, 255, 0.8)"
+    };
+    const originalShadow = edge.shadow || {
+        enabled: true,
+        color: "rgba(138, 100, 226, 0.3)",
+        size: 8,
+        x: 0,
+        y: 0
+    };
+    
+    network.body.data.edges.update({
+        id: edgeId,
+        color: {
+            color: "rgba(200, 100, 255, 0.9)",
+            highlight: "rgba(200, 100, 255, 0.9)"
+        },
+        width: 4,
+        shadow: {
+            enabled: true,
+            color: "rgba(200, 100, 255, 0.6)",
+            size: 15,
+            x: 0,
+            y: 0
+        }
+    });
+    
+    illuminateTimeoutId = setTimeout(() => {
+        const currentEdge = network.body.data.edges.get(edgeId);
+        if (currentEdge) {
             network.body.data.edges.update({
                 id: edgeId,
-                color: {
-                    color: "rgba(138, 100, 226, 0.4)",
-                    highlight: "rgba(200, 100, 255, 0.8)"
-                },
+                color: originalColor,
                 width: 2,
-                shadow: {
-                    enabled: true,
-                    color: "rgba(138, 100, 226, 0.3)",
-                    size: 8,
-                    x: 0,
-                    y: 0
-                }
+                shadow: originalShadow
             });
-        }, 500);
-    }
+        }
+    }, 500);
 }
 
 function hideSelectedNode() {
